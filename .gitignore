@@ -1,0 +1,4 @@
+.DS_Store
+vpn-fix-local/
+__pycache__/
+*.pyc

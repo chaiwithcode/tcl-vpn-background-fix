@@ -1,0 +1,6 @@
+# Created by Deepak Sharma on 29/10/2026.
+# Copyright © 2026 ChaiWithCode. All rights reserved.
+interface:
+  display_name: "TCL VPN Background Fix"
+  short_description: "Diagnose TCL VPN kills and prepare saved exclusions"
+  default_prompt: "Use $tcl-vpn-fix to diagnose my TCL TV VPN disconnects and prepare a targeted fix."
