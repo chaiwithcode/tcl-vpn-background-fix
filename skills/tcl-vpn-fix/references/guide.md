@@ -92,6 +92,41 @@ Look for repeated exits of your VPN app with `description=tguard-kill`. An exit 
 
 Check whether your VPN app already has an Android battery exemption and whether TCL's `APP_AUTO_START` and `APP_ASSOC_START` operations are allowed. Their availability and names may vary by firmware.
 
+### Distinguish cleaner kills from application ANRs
+
+If the VPN continues disconnecting after the cleaner exclusions have been applied, inspect the latest process-exit history again:
+
+```sh
+adb -s "$TV_ADB" shell dumpsys activity exit-info "$VPN_PACKAGE"
+```
+
+Distinguish these outcomes:
+
+| Evidence | Interpretation |
+| --- | --- |
+| `description=tguard-kill` | TCL Safety Guard terminated the application; investigate saved and live cleaner exclusions. |
+| `reason=6 (ANR)` | Android terminated an unresponsive process; inspect the corresponding ANR diagnostics. |
+| Network disconnected without a matching process exit | Investigate connectivity, tunnel state, and VPN reconnection behavior. |
+
+On the tested Surfshark 3.37.1 installation, repeated background ANRs included:
+
+```text
+process=com.surfshark.vpnclient.android
+reason=6 (ANR)
+subreason=0 (UNKNOWN)
+description=bg anr
+```
+
+The corresponding Android ANR diagnostics reported:
+
+```text
+Context.startForegroundService() did not then call Service.startForeground()
+```
+
+The affected component was Surfshark's `WireguardVpnService`.
+
+Do not infer this cause from `reason=6` alone. Check the matching ANR diagnostics and timestamps. The timeout identifies the immediate Android failure, not necessarily the underlying Surfshark implementation defect.
+
 ## 3. Back up the TV's own cleaner configuration
 
 ```sh
@@ -198,6 +233,41 @@ adb -s "$TV_ADB" shell dumpsys connectivity
 Look for your VPN app's service and a connected VPN network. Split tunneling can intentionally route only selected apps through the VPN; a connected tunnel does not prove that every app uses it. Raw connectivity dumps can contain personal network details, so redact them before sharing.
 
 On the tested TV, both exclusions loaded automatically after reboot, and Surfshark's VPN was connected and validated approximately 71 seconds after boot. That is an observation, not a startup-time guarantee.
+
+### Secondary disconnects: Surfshark WireGuard foreground-service ANR
+
+On the tested TCL 55C7K-UK running Android 12, Surfshark 3.37.1 continued disconnecting even after TCL Safety Guard exclusions were confirmed active.
+
+Its WireGuard VPN service repeatedly encountered Android foreground-service startup timeouts during background operation.
+
+A tested workaround was to change Surfshark's VPN protocol:
+
+1. Open the Surfshark app on the TV.
+2. Open **Settings → Protocol**.
+3. Select **OpenVPN/ UDP** instead of Automatic/WireGuard.
+4. Reconnect when Surfshark asks to apply the protocol change.
+5. Confirm the intended VPN location and preserve the existing Auto-connect and Bypasser settings.
+6. Verify the VPN stays connected during background use.
+7. Inspect the latest process-exit records for new ANRs.
+8. After obtaining permission to interrupt playback, perform a full TV reboot and verify that Surfshark reconnects automatically.
+
+For read-only validation, the existing ADB connection can be used:
+
+```sh
+adb -s "$TV_ADB" shell dumpsys activity services "$VPN_PACKAGE"
+adb -s "$TV_ADB" shell dumpsys connectivity
+adb -s "$TV_ADB" shell dumpsys activity exit-info "$VPN_PACKAGE"
+```
+
+On the tested device, the active backend changed from `WireguardVpnService` to `de.blinkt.openvpn.core.OpenVPNService`. Android reported that the OpenVPN service was running in the foreground.
+
+The VPN remained connected during the short background and standby/wake tests, recorded no new ANRs during approximately 20 minutes of sustained observation, and automatically reconnected after one full reboot.
+
+**Limitations:** This does not establish long-term reliability or prove that OpenVPN is universally more reliable than WireGuard. VPN routes, process presence, and virtual tunnel interfaces also do not independently prove the public IP used by every split-tunnel application.
+
+If OpenVPN (UDP) does not work for your installation, collect new diagnostics rather than applying unrelated system changes. You can restore the previous protocol using the same Surfshark settings screen.
+
+Do not blindly enable Android Always-on VPN, modify secure settings, disable system services, or create restart watchdogs as part of this workaround.
 
 ## Rollback
 

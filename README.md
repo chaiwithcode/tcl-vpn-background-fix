@@ -80,6 +80,16 @@ For the manual route, use the same helper with `python3 skills/tcl-vpn-fix/scrip
 
 This method applies when the VPN app's exit history shows **`tguard-kill`** and the matching TCL configuration provider is accessible. It does not fix every VPN disconnect or Wi-Fi problem.
 
+### If Surfshark still disconnects after the cleaner fix
+
+Not every VPN disconnect is caused by TCL Safety Guard. On the tested TCL 55C7K-UK (Android 12), Surfshark 3.37.1 continued experiencing background ANRs even after the saved cleaner exclusions eliminated `tguard-kill` events.
+
+Android diagnostics identified a foreground-service startup timeout involving Surfshark's `WireguardVpnService`. Switching the Surfshark TV app from Automatic/WireGuard to **OpenVPN (UDP)** prevented new ANRs during the observed test window and restored automatic VPN reconnection after a full reboot.
+
+This is a separate in-app workaround, not a change to the TCL whitelist helper. Long-term reliability and compatibility with other VPN versions, devices, and firmware remain unverified.
+
+See the [troubleshooting and verification guide](skills/tcl-vpn-fix/references/guide.md) for diagnostic evidence and steps.
+
 The saved-exclusion method keeps Safety Guard enabled. On the tested TV, disabling its cleaner component was denied, and disabling the entire app was undone during boot. Live-only exclusions also disappeared after reboot; saved exclusions were required.
 
 Long-term streaming stability is not yet verified. A connected VPN does not prove all apps use it when split tunneling is enabled.
